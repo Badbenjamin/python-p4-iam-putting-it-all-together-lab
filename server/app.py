@@ -18,10 +18,12 @@ def signup():
             image_url = data.get('image_url'),
             bio = data.get('bio')
         )
+        # use setter to generate and store pw hash
         new_user.password_hash=data['password']
         
         db.session.add(new_user)
         db.session.commit()
+        # set session (secure cookie obj) to user id (id from db)
         session['user_id'] = new_user.id
         print(session)
         return new_user.to_dict(), 201
@@ -31,9 +33,8 @@ def signup():
 @app.route('/check_session')
 def check_session():
     #  query db for user. make sure user cookie id matches user id in db
-    print(session)
     user = User.query.filter(User.id == session['user_id']).first()
-    print(user)
+    # if no match is found, cookie is altered or user is not logged in
     if user is None:
 
         return {"error": 'not logged in'}, 401
@@ -43,17 +44,20 @@ def check_session():
 
 @app.route('/login', methods=['POST'])
 def login():
-    
+    # get json data from login
     data = request.get_json()
-    # print("d", data)
-    # print("un", data.get('username'))
+    # query for matching user from data
     user = User.query.filter(User.username == data.get('username')).first()
-    # print("u", user)
+    # if user doesn't yield result, then the json contained an invalid user
     if user is None:
         return {'error' : 'login failed'}, 401
+    # make sure password for user object and JSON password match
     if not user.authenticate(data.get('password')):
         return {'error' : 'login failed'}, 401
     
+    # set session to user id
+    # session info will be encrypted and sent to browser as cookie
+    # flask can access the info and decrypt to access session data
     session['user_id']=user.id
 
     return user.to_dict(), 200
@@ -64,6 +68,7 @@ def logout():
     print(session)
     if session['user_id'] is not None:
         session['user_id'] = None
+        # or session.pop('user_id')
         return {}, 204
     else:
         return {'error' : 'not logged in'}, 401
@@ -79,6 +84,8 @@ def get_recipes():
     
     if request.method == 'POST':
         data = request.get_json()
+        # try will run code if no error is raised by Recipe initializaton
+        # we have a @validates function that raises a Value error
         try:
             new_recipe = Recipe(
                 title=data.get('title'),
@@ -87,6 +94,8 @@ def get_recipes():
                 user_id=session['user_id']
             )
             new_recipe.user = User.query.filter(User.id == session['user_id']).first()
+        # if a ValueError is raised, this block runs
+        # ValueError as e will allow error message from Recipe to be passed to our message
         except ValueError as e:
             return {'error' : f'{e}'}, 422
         # pprint.pprint(type(new_recipe.to_dict()['user']))
@@ -99,15 +108,6 @@ def get_recipes():
             return new_recipe.to_dict(), 201
         else: 
             return {'error' : 'missing fileds'}, 422
-        
-    
-
-
-# api.add_resource(Signup, '/signup', endpoint='signup')
-# api.add_resource(CheckSession, '/check_session', endpoint='check_session')
-# api.add_resource(Login, '/login', endpoint='login')
-# api.add_resource(Logout, '/logout', endpoint='logout')
-# api.add_resource(RecipeIndex, '/recipes', endpoint='recipes')
 
 
 if __name__ == '__main__':
