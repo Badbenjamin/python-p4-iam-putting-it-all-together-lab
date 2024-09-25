@@ -16,6 +16,8 @@ class User(db.Model, SerializerMixin):
     # in this relationship, Recipe class backpops user relationship in Recipe class
     recipes = db.relationship('Recipe', back_populates='user')
 
+    serialize_rules=['-recipes.user']
+
     # function in hybrid property is named for method you use to set pw
     @hybrid_property
     def password_hash(self):
@@ -26,6 +28,7 @@ class User(db.Model, SerializerMixin):
         bytes = plain_text_password.encode('utf-8')
         self._password_hash = bcrypt.generate_password_hash(bytes)
 
+    # authenticate will evaluate to true if pw matches hashed pw
     def authenticate(self, password):
          return bcrypt.check_password_hash(
               self._password_hash,
@@ -34,7 +37,7 @@ class User(db.Model, SerializerMixin):
          
 
     def __repr__(self):
-         return f'<User {self.id}, {self.username}, {self._password_hash}>'
+         return f'<User {self.id}, {self.username}>'
 
 class Recipe(db.Model, SerializerMixin):
     __tablename__ = 'recipes'
@@ -48,10 +51,12 @@ class Recipe(db.Model, SerializerMixin):
     # in this relationship, User class backpops recipies relationship in User class
     user = db.relationship('User', back_populates='recipes')
 
+    serialize_rules=['-user.recipes']
+
     @validates('instructions')
     def validate_instructions(self, key, new_instructions):
             if len(new_instructions) < 50:
-                raise ValueError
+                raise ValueError(f'{key} needs to be between 1 and 30 chars long')
             else:
                  return new_instructions
 
